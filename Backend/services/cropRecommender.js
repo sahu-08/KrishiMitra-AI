@@ -119,7 +119,7 @@ function scoreRange(value, [min, max]) {
   const half = (max - min) / 2 || 1;
   const distance = Math.abs(value - mid) / half;
   return Math.max(0, 1 - distance * 0.45);
-}
+} 
 
 export function recommendCrops(params) {
   const { nitrogen, phosphorus, potassium, temperature, humidity, ph, rainfall } =

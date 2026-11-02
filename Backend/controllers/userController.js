@@ -157,29 +157,47 @@ export const requestOTPController = async (req, res) => {
                 attempts: 0,
             },
             { upsert: true, runValidators: true },
-        );const canEmail = process.env.SMTP_USER && process.env.SMTP_PASS;
+        );
+
+const canEmail = process.env.SMTP_USER && process.env.SMTP_PASS;
 let emailSent = false;
+let emailError = null;
+
+// Always log OTP to console so it's visible in Render logs as fallback
+console.log(`[KrishiMitra OTP] ${normalizedEmail} => ${otp}`);
 
 if (canEmail) {
     try {
         await transporter.sendMail({
-            from: process.env.SMTP_USER,
+            from: `"KrishiMitra AI" <${process.env.SMTP_USER}>`,
             to: normalizedEmail,
             subject: 'Your KrishiMitra AI OTP',
-            text: `Your OTP is ${otp}. It expires in 5 minutes.`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 400px;">
+                    <h2 style="color: #2d6a4f;">KrishiMitra AI</h2>
+                    <p>Your OTP for login is:</p>
+                    <h1 style="letter-spacing: 8px; color: #2d6a4f;">${otp}</h1>
+                    <p>This OTP expires in <strong>5 minutes</strong>.</p>
+                    <p style="color: #888; font-size: 12px;">If you didn't request this, ignore this email.</p>
+                </div>
+            `,
         });
         emailSent = true;
-    } catch (emailError) {
-        console.error('Failed to send OTP email:', emailError);
-        // Continue without aborting; devOtp will be returned for debugging
+        console.log(`[KrishiMitra OTP] Email sent successfully to ${normalizedEmail}`);
+    } catch (err) {
+        emailError = err;
+        console.error('[KrishiMitra OTP] Failed to send email. Error:', err.message);
     }
 } else {
-    // Dev mode: no SMTP configured — OTP printed in server console
-    console.log(`[KrishiMitra OTP] ${normalizedEmail} => ${otp}`);
+    console.log('[KrishiMitra OTP] SMTP not configured — check SMTP_USER and SMTP_PASS env vars');
 }
 
 return res.status(200).json({
-    message: emailSent ? 'OTP sent successfully' : 'OTP generated (check server console — SMTP not configured)',
+    message: emailSent
+        ? 'OTP sent to your email successfully'
+        : canEmail
+            ? `OTP generated but email failed to send — check Render logs`
+            : 'OTP generated (SMTP not configured — check server logs)',
     // Only expose OTP in development mode, never in production
     ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
 });

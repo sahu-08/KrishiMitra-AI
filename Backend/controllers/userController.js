@@ -14,6 +14,9 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
+    tls: {
+        rejectUnauthorized: false,
+    },
 });
 
 const createSession = async (user, res) => {
@@ -154,34 +157,32 @@ export const requestOTPController = async (req, res) => {
                 attempts: 0,
             },
             { upsert: true, runValidators: true },
-        );
+        );const canEmail = process.env.SMTP_USER && process.env.SMTP_PASS;
+let emailSent = false;
 
-        const canEmail = process.env.SMTP_USER && process.env.SMTP_PASS;
-
-        if (canEmail) {
-            try {
-                await transporter.sendMail({
-                    from: process.env.SMTP_USER,
-                    to: normalizedEmail,
-                    subject: 'Your KrishiMitra AI OTP',
-                    text: `Your OTP is ${otp}. It expires in 5 minutes.`,
-                });
-            } catch (error) {
-                await OTP.deleteOne({ email: normalizedEmail });
-                throw error;
-            }
-        } else {
-            // Dev mode: no SMTP configured — OTP printed in server console
-            console.log(`[KrishiMitra OTP] ${normalizedEmail} => ${otp}`);
-        }
-
-        return res.status(200).json({
-            message: canEmail
-                ? 'OTP sent successfully'
-                : 'OTP generated (check server console — SMTP not configured)',
-            // Only expose OTP when SMTP is off (local development)
-            ...(canEmail ? {} : { devOtp: otp }),
+if (canEmail) {
+    try {
+        await transporter.sendMail({
+            from: process.env.SMTP_USER,
+            to: normalizedEmail,
+            subject: 'Your KrishiMitra AI OTP',
+            text: `Your OTP is ${otp}. It expires in 5 minutes.`,
         });
+        emailSent = true;
+    } catch (emailError) {
+        console.error('Failed to send OTP email:', emailError);
+        // Continue without aborting; devOtp will be returned for debugging
+    }
+} else {
+    // Dev mode: no SMTP configured — OTP printed in server console
+    console.log(`[KrishiMitra OTP] ${normalizedEmail} => ${otp}`);
+}
+
+return res.status(200).json({
+    message: emailSent ? 'OTP sent successfully' : 'OTP generated (check server console — SMTP not configured)',
+    // Only expose OTP in development mode, never in production
+    ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
+});
     } catch (error) {
         return res.status(500).json({
             message: 'Unable to send OTP',

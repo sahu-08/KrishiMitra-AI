@@ -6,18 +6,35 @@ import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
 
+const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+const smtpUser = process.env.SMTP_USER?.trim();
+const smtpPass = process.env.SMTP_PASS?.replace(/\s+/g, '');
+
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465, // false for 587 (STARTTLS), true for 465
+    requireTLS: smtpPort === 587,
     auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: smtpUser,
+        pass: smtpPass,
     },
     tls: {
         rejectUnauthorized: false,
     },
 });
+
+// Verify SMTP connection on startup if credentials exist
+if (smtpUser && smtpPass) {
+    transporter.verify((error) => {
+        if (error) {
+            console.error('❌ [SMTP] Connection verification failed:', error.message);
+        } else {
+            console.log(`✅ [SMTP] Connected to ${smtpHost}:${smtpPort} (ready to send emails)`);
+        }
+    });
+}
 
 const createSession = async (user, res) => {
     const session = await Session.create({
@@ -159,48 +176,50 @@ export const requestOTPController = async (req, res) => {
             { upsert: true, runValidators: true },
         );
 
-const canEmail = process.env.SMTP_USER && process.env.SMTP_PASS;
-let emailSent = false;
-let emailError = null;
+        const canEmail = Boolean(smtpUser && smtpPass);
+        let emailSent = false;
+        let emailError = null;
 
-// Always log OTP to console so it's visible in Render logs as fallback
-console.log(`[KrishiMitra OTP] ${normalizedEmail} => ${otp}`);
+        // Always log OTP to console so it's visible in Render logs as fallback
+        console.log(`[KrishiMitra OTP] ${normalizedEmail} => ${otp}`);
 
-if (canEmail) {
-    try {
-        await transporter.sendMail({
-            from: `"KrishiMitra AI" <${process.env.SMTP_USER}>`,
-            to: normalizedEmail,
-            subject: 'Your KrishiMitra AI OTP',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 400px;">
-                    <h2 style="color: #2d6a4f;">KrishiMitra AI</h2>
-                    <p>Your OTP for login is:</p>
-                    <h1 style="letter-spacing: 8px; color: #2d6a4f;">${otp}</h1>
-                    <p>This OTP expires in <strong>5 minutes</strong>.</p>
-                    <p style="color: #888; font-size: 12px;">If you didn't request this, ignore this email.</p>
-                </div>
-            `,
+        if (canEmail) {
+            try {
+                await transporter.sendMail({
+                    from: `"KrishiMitra AI" <${smtpUser}>`,
+                    to: normalizedEmail,
+                    subject: 'Your KrishiMitra AI OTP',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 420px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                            <h2 style="color: #2d6a4f; margin-top: 0;">KrishiMitra AI</h2>
+                            <p style="color: #333; font-size: 15px;">Your OTP for login is:</p>
+                            <div style="background-color: #f0fdf4; border: 1px dashed #2d6a4f; border-radius: 6px; padding: 12px; text-align: center; margin: 16px 0;">
+                                <span style="font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #2d6a4f;">${otp}</span>
+                            </div>
+                            <p style="color: #555; font-size: 13px;">This OTP expires in <strong>5 minutes</strong>.</p>
+                            <p style="color: #888; font-size: 12px; margin-bottom: 0;">If you didn't request this code, you can safely ignore this email.</p>
+                        </div>
+                    `,
+                });
+                emailSent = true;
+                console.log(`[KrishiMitra OTP] Email sent successfully to ${normalizedEmail}`);
+            } catch (err) {
+                emailError = err;
+                console.error('[KrishiMitra OTP] Failed to send email. Error:', err.message);
+            }
+        } else {
+            console.log('[KrishiMitra OTP] SMTP not configured — check SMTP_USER and SMTP_PASS env vars');
+        }
+
+        return res.status(200).json({
+            message: emailSent
+                ? 'OTP sent to your email successfully'
+                : canEmail
+                    ? 'OTP generated but email failed to send — check Render logs'
+                    : 'OTP generated (SMTP not configured — check server logs)',
+            // Expose devOtp in development or as fallback if email fails to send
+            ...((process.env.NODE_ENV !== 'production' || !emailSent) && { devOtp: otp }),
         });
-        emailSent = true;
-        console.log(`[KrishiMitra OTP] Email sent successfully to ${normalizedEmail}`);
-    } catch (err) {
-        emailError = err;
-        console.error('[KrishiMitra OTP] Failed to send email. Error:', err.message);
-    }
-} else {
-    console.log('[KrishiMitra OTP] SMTP not configured — check SMTP_USER and SMTP_PASS env vars');
-}
-
-return res.status(200).json({
-    message: emailSent
-        ? 'OTP sent to your email successfully'
-        : canEmail
-            ? `OTP generated but email failed to send — check Render logs`
-            : 'OTP generated (SMTP not configured — check server logs)',
-    // Only expose OTP in development mode, never in production
-    ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
-});
     } catch (error) {
         return res.status(500).json({
             message: 'Unable to send OTP',

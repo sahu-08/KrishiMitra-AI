@@ -29,9 +29,14 @@ const transporter = nodemailer.createTransport({
 if (smtpUser && smtpPass) {
     transporter.verify((error) => {
         if (error) {
-            console.error('❌ [SMTP] Connection verification failed:', error.message);
+            console.error(
+                '❌ [SMTP] Connection verification failed:',
+                error.message,
+            );
         } else {
-            console.log(`✅ [SMTP] Connected to ${smtpHost}:${smtpPort} (ready to send emails)`);
+            console.log(
+                `✅ [SMTP] Connected to ${smtpHost}:${smtpPort} (ready to send emails)`,
+            );
         }
     });
 }
@@ -153,7 +158,15 @@ export const requestOTPController = async (req, res) => {
             email: normalizedEmail,
         });
 
-        if (!user || !(await bcrypt.compare(password, user.password))) {
+        console.log('[DEBUG] User found:', !!user);
+
+        const passwordMatches = user
+            ? await bcrypt.compare(password, user.password)
+            : false;
+
+        console.log('[DEBUG] Password matches:', passwordMatches);
+
+        if (!user || !passwordMatches) {
             return res.status(401).json({
                 message: 'Invalid credentials',
             });
@@ -202,23 +215,32 @@ export const requestOTPController = async (req, res) => {
                     `,
                 });
                 emailSent = true;
-                console.log(`[KrishiMitra OTP] Email sent successfully to ${normalizedEmail}`);
+                console.log(
+                    `[KrishiMitra OTP] Email sent successfully to ${normalizedEmail}`,
+                );
             } catch (err) {
                 emailError = err;
-                console.error('[KrishiMitra OTP] Failed to send email. Error:', err.message);
+                console.error(
+                    '[KrishiMitra OTP] Failed to send email. Error:',
+                    err.message,
+                );
             }
         } else {
-            console.log('[KrishiMitra OTP] SMTP not configured — check SMTP_USER and SMTP_PASS env vars');
+            console.log(
+                '[KrishiMitra OTP] SMTP not configured — check SMTP_USER and SMTP_PASS env vars',
+            );
         }
 
         return res.status(200).json({
             message: emailSent
                 ? 'OTP sent to your email successfully'
                 : canEmail
-                    ? 'OTP generated but email failed to send — check Render logs'
-                    : 'OTP generated (SMTP not configured — check server logs)',
+                  ? 'OTP generated but email failed to send — check Render logs'
+                  : 'OTP generated (SMTP not configured — check server logs)',
             // Expose devOtp in development or as fallback if email fails to send
-            ...((process.env.NODE_ENV !== 'production' || !emailSent) && { devOtp: otp }),
+            ...((process.env.NODE_ENV !== 'production' || !emailSent) && {
+                devOtp: otp,
+            }),
         });
     } catch (error) {
         return res.status(500).json({

@@ -1,4 +1,4 @@
-const API = 'https://krishimitra-ai-vqd4.onrender.com/api';
+const API = import.meta.env.VITE_API_URL || 'https://krishimitra-ai-vqd4.onrender.com/api';
 
 async function request(path, options = {}) {
     const res = await fetch(`${API}${path}`, {
@@ -28,18 +28,6 @@ export const api = {
 
     login: (body) =>
         request('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
-
-    requestOtp: (body) =>
-        request('/auth/request-otp', {
-            method: 'POST',
-            body: JSON.stringify(body),
-        }),
-
-    verifyOtp: (body) =>
-        request('/auth/verify-otp', {
-            method: 'POST',
-            body: JSON.stringify(body),
-        }),
 
     logout: () => request('/auth/logout', { method: 'POST', body: '{}' }),
 

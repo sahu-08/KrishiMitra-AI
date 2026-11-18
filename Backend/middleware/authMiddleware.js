@@ -50,4 +50,32 @@ const authMiddleware = async (req, res, next) => {
     }
 };
 
+export const optionalAuthMiddleware = async (req, res, next) => {
+    try {
+        const sessionId = req.signedCookies?.sid;
+
+        if (!sessionId) {
+            req.user = null;
+            return next();
+        }
+
+        const session = await Session.findById(sessionId);
+
+        if (!session || session.expiresAt <= new Date()) {
+            if (session) {
+                await Session.findByIdAndDelete(session._id);
+            }
+            req.user = null;
+            return next();
+        }
+
+        const user = await User.findById(session.userId);
+        req.user = user || null;
+        next();
+    } catch (error) {
+        req.user = null;
+        next();
+    }
+};
+
 export default authMiddleware;

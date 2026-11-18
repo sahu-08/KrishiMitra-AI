@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const empty = {
   nitrogen: "",
@@ -12,6 +14,7 @@ const empty = {
 };
 
 export default function Recommend() {
+  const { user } = useAuth();
   const [form, setForm] = useState(empty);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
@@ -19,6 +22,7 @@ export default function Recommend() {
   const [busy, setBusy] = useState(false);
 
   const loadHistory = async () => {
+    if (!user) return;
     try {
       const data = await api.history();
       setHistory(data.history || []);
@@ -29,7 +33,7 @@ export default function Recommend() {
 
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [user]);
 
   const onChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -47,7 +51,9 @@ export default function Recommend() {
       );
       const data = await api.recommend(payload);
       setResult(data);
-      loadHistory();
+      if (user) {
+        loadHistory();
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -115,7 +121,7 @@ export default function Recommend() {
           </div>
         )}
 
-        {history.length > 0 && (
+        {user && history.length > 0 && (
           <div className="history">
             <h3>Recent</h3>
             <ul>
@@ -129,6 +135,16 @@ export default function Recommend() {
               ))}
             </ul>
           </div>
+        )}
+
+        {!user && (
+          <p className="muted" style={{ fontSize: "0.88rem", marginTop: "1.5rem" }}>
+            Tip:{" "}
+            <Link to="/auth" style={{ color: "var(--leaf)", textDecoration: "underline" }}>
+              Log in
+            </Link>{" "}
+            to save your soil tests and view past history across visits.
+          </p>
         )}
       </div>
     </section>

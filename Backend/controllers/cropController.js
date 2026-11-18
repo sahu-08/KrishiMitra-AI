@@ -27,21 +27,24 @@ export const recommendCropController = async (req, res) => {
 
     const result = recommendCrops(values);
 
-    const saved = await Recommendation.create({
-      userId: req.user._id,
-      ...values,
-      recommendedCrop: result.recommendedCrop,
-      topRecommendations: result.topRecommendations.map((item) => ({
-        crop: item.crop,
-        modelScore: item.modelScore,
-      })),
-    });
+    let saved = null;
+    if (req.user?._id) {
+      saved = await Recommendation.create({
+        userId: req.user._id,
+        ...values,
+        recommendedCrop: result.recommendedCrop,
+        topRecommendations: result.topRecommendations.map((item) => ({
+          crop: item.crop,
+          modelScore: item.modelScore,
+        })),
+      });
+    }
 
     return res.status(200).json({
       message: "Top crops recommended",
       recommendedCrop: result.recommendedCrop,
       topRecommendations: result.topRecommendations,
-      id: saved._id,
+      id: saved ? saved._id : null,
     });
   } catch (error) {
     return res.status(500).json({

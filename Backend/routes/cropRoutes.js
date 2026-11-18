@@ -1,5 +1,7 @@
 import express from "express";
-import authMiddleware from "../middleware/authMiddleware.js";
+import authMiddleware, {
+  optionalAuthMiddleware,
+} from "../middleware/authMiddleware.js";
 import {
   recommendCropController,
   historyController,
@@ -7,7 +9,7 @@ import {
 
 const router = express.Router();
 
-router.post("/recommend", authMiddleware, recommendCropController);
+router.post("/recommend", optionalAuthMiddleware, recommendCropController);
 router.get("/history", authMiddleware, historyController);
 
 export default router;

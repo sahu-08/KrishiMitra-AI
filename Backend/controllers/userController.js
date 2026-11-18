@@ -80,14 +80,21 @@ export const registerController = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        await User.create({
+        const newUser = await User.create({
             name,
             email: normalizedEmail,
             password: hashedPassword,
         });
 
+        await createSession(newUser, res);
+
         return res.status(201).json({
             message: 'Registration successful',
+            user: {
+                id: newUser._id,
+                name: newUser.name,
+                email: newUser.email,
+            },
         });
     } catch (error) {
         if (error.code === 11000) {
@@ -134,6 +141,11 @@ export const loginController = async (req, res) => {
 
         return res.status(200).json({
             message: 'Login successful',
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+            },
         });
     } catch (error) {
         return res.status(500).json({

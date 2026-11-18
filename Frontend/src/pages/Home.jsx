@@ -1,9 +1,6 @@
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Home() {
-  const { user } = useAuth();
-
   return (
     <section className="hero">
       <div className="hero-copy">
@@ -14,8 +11,8 @@ export default function Home() {
           can type or speak to.
         </p>
         <div className="cta-row">
-          <Link className="btn primary" to={user ? "/recommend" : "/auth"}>
-            {user ? "Get crop advice" : "Sign in to start"}
+          <Link className="btn primary" to="/recommend">
+            Get crop advice
           </Link>
           <Link className="btn ghost" to="/chat">
             Ask the chatbot
@@ -26,7 +23,7 @@ export default function Home() {
       <div className="feature-strip">
         <article>
           <h2>Crop recommendation</h2>
-          <p>Enter N, P, K, pH, weather — get top 3 crops.</p>
+          <p>Enter N, P, K, pH, weather — get top 3 crops directly.</p>
         </article>
         <article>
           <h2>Farming chatbot</h2>
